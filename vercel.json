@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/contests",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/news",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/daily-lesson",
+      "schedule": "5 0 * * *"
+    }
+  ]
+}

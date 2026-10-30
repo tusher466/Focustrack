@@ -1,0 +1,364 @@
+// Prisma schema for FocusTrack
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum Track {
+  CP
+  ACADEMIC
+  VIBE
+}
+
+enum TaskStatus {
+  TODO
+  DOING
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CpPlatform {
+  CODEFORCES
+  CODECHEF
+  OTHER
+}
+
+enum CpResult {
+  SOLVED
+  PARTIAL
+  FAILED
+  EDITORIAL_USED
+}
+
+enum ContestPlatform {
+  CODEFORCES
+  CODECHEF
+}
+
+enum FocusType {
+  POMODORO
+  TIMER
+  STOPWATCH
+}
+
+enum PromptRating {
+  WORKED
+  DIDNT_WORK
+}
+
+// Auth.js models
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  profile        Profile?
+  tasks          Task[]
+  cpLogs         CpProblemLog[]
+  aiReviews      AiReview[]
+  promptLessons  PromptLesson[]
+  progress       UserProgress[]
+  focusSessions  FocusSession[]
+  exams          Exam[]
+  promptLibrary  PromptLibrary[]
+  newsBookmarks  NewsBookmark[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// App models
+
+model Profile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  displayName      String?
+  bio              String?  @db.Text
+  avatar           String?
+  timezone         String   @default("UTC")
+  codeforcesHandle String?
+  codechefHandle   String?
+  goals            Json?    // { cpGoal, academicGoal, vibeGoal }
+  weeklyTargetHours Int     @default(10)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  userId      String
+  track       Track
+  title       String
+  notes       String?      @db.Text
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueAt       DateTime?
+  estimateMin Int?
+  tags        String[]     @default([])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  completedAt DateTime?
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cpLogs   CpProblemLog[]
+  focusSessions FocusSession[]
+
+  @@index([userId, track])
+  @@index([userId, status])
+  @@index([dueAt])
+}
+
+model CpProblemLog {
+  id           String    @id @default(cuid())
+  userId       String
+  taskId       String?
+  platform     CpPlatform @default(CODEFORCES)
+  problemUrl   String
+  rating       Int?
+  topics       String[]   @default([])
+  result       CpResult
+  timeSpentMin Int?
+  createdAt    DateTime  @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([taskId])
+  @@index([platform])
+  @@index([createdAt])
+}
+
+model AiReview {
+  id            String   @id @default(cuid())
+  userId        String
+  track         Track
+  inputSnapshot Json
+  output        Json
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, track])
+  @@index([createdAt])
+}
+
+model Contest {
+  id          String          @id @default(cuid())
+  platform    ContestPlatform
+  externalId  String
+  name        String
+  startTime   DateTime        @db.Timestamptz
+  durationSec Int
+  url         String
+  phase       String          @default("BEFORE") // BEFORE, CODING, FINISHED
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([platform, externalId])
+  @@index([startTime])
+  @@index([platform])
+}
+
+model PromptLesson {
+  id                String   @id @default(cuid())
+  userId            String
+  date              DateTime @db.Date
+  level             Int
+  title             String
+  concept           String   @db.Text
+  badPromptExample  String   @db.Text
+  goodPromptExample String   @db.Text
+  exercise          String   @db.Text
+  buildChallenge    String?  @db.Text
+  completed         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, level])
+}
+
+model UserProgress {
+  id             String    @id @default(cuid())
+  userId         String
+  track          Track
+  xp             Int       @default(0)
+  level          Int       @default(1)
+  streakDays     Int       @default(0)
+  lastActiveDate DateTime? @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, track])
+  @@index([userId])
+}
+
+model FocusSession {
+  id         String     @id @default(cuid())
+  userId     String
+  track      Track?
+  taskId     String?
+  type       FocusType
+  plannedSec Int
+  actualSec  Int?
+  startedAt  DateTime
+  endedAt    DateTime?
+  createdAt  DateTime   @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([startedAt])
+  @@index([userId, track])
+}
+
+model Exam {
+  id             String   @id @default(cuid())
+  userId         String
+  subject        String
+  examDate       DateTime @db.Timestamptz
+  syllabusTopics Json     // [{ topic, confidence: 1-5, status: TODO/DOING/DONE }]
+  targetScore    Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     StudyPlanItem[]
+  mockTests ExamMockTest[]
+  // For countdown we use examDate
+
+  @@index([userId])
+  @@index([examDate])
+}
+
+model ExamMockTest {
+  id        String   @id @default(cuid())
+  examId    String
+  date      DateTime @db.Date
+  score     Int
+  total     Int      @default(100)
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId])
+  @@index([date])
+}
+
+model StudyPlanItem {
+  id          String   @id @default(cuid())
+  examId      String
+  date        DateTime @db.Date
+  topic       String
+  durationMin Int
+  done        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId])
+  @@index([date])
+}
+
+model NewsItem {
+  id          String   @id @default(cuid())
+  source      String
+  title       String
+  url         String   @unique
+  publishedAt DateTime @db.Timestamptz
+  summary     String?  @db.Text
+  tags        String[] @default([])
+  createdAt   DateTime @default(now())
+
+  bookmarks NewsBookmark[]
+
+  @@index([publishedAt])
+  @@index([source])
+}
+
+model NewsBookmark {
+  id         String   @id @default(cuid())
+  userId     String
+  newsItemId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newsItem NewsItem @relation(fields: [newsItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, newsItemId])
+  @@index([userId])
+}
+
+model PromptLibrary {
+  id        String       @id @default(cuid())
+  userId    String
+  title     String
+  prompt    String       @db.Text
+  rating    PromptRating?
+  notes     String?      @db.Text
+  tags      String[]     @default([])
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
