@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/contests",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/news",
-      "schedule": "0 */2 * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/daily-lesson",
